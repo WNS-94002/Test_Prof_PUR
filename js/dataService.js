@@ -14,16 +14,6 @@ import {
 export const debugLog = [];
 
 
-// ── Row Mapper ─────────────────────────────────
-/**
- * Map a raw CSV row object to a normalised procurement row.
- */
-function mapRow(rawRow, idx, { gid, name, label, group, headers }) {
-  const { COL_KEYWORDS: KW } = await import('./config.js').then(m => m); // static import below
-  // NOTE: we pass detected column names directly to avoid re-detecting per row.
-  throw new Error('Use mapRowWithCols instead');
-}
-
 /**
  * Detect columns from headers, then map all rows at once.
  */
