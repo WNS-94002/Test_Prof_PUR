@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Procurement Dashboard — Mining Equipment & Services</title>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Chart.js (CDN) — loaded before app modules -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" defer></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     TOPBAR
+════════════════════════════════════════ -->
+<header class="topbar">
+  <div>
+    <h1 class="topbar__title">Procurement Dashboard</h1>
+    <p  class="topbar__subtitle">Mining Equipment &amp; Services · สรุปตาม RO Number</p>
+  </div>
+  <div class="topbar__actions">
+    <span class="badge" id="status-badge">กำลังโหลด...</span>
+    <button class="btn" id="btn-refresh">↻ Refresh</button>
+    <button class="btn" id="btn-export">⬇ Export CSV</button>
+    <button class="btn" id="btn-debug">🔍 Debug</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════
+     MAIN
+════════════════════════════════════════ -->
+<main class="main">
+
+  <!-- Debug Panel -->
+  <div class="debug-panel" id="debug-panel">
+    <strong>Debug — Column Headers ที่พบในแต่ละ Budget:</strong>
+    <div class="debug-panel__content" id="debug-content"></div>
+  </div>
+
+  <!-- Loading Bar -->
+  <div class="loading-wrap" id="loading-section">
+    <div class="loading-bar">
+      <div class="loading-bar__fill"></div>
+    </div>
+    <p class="loading-bar__status" id="load-status">กำลังเริ่มต้นโหลดข้อมูล...</p>
+  </div>
+
+  <!-- ── Value Summary ─────────────────── -->
+  <section class="value-card">
+    <div class="value-card__title">สรุปมูลค่าการสั่งซื้อ เทียบกับ Budget ปี 2026</div>
+    <div class="value-card__row">
+      <div class="value-item">
+        <div class="value-item__label">งบประมาณ 2026</div>
+        <div class="value-item__num c-muted" id="v-budget2026">—</div>
+        <div class="value-item__sub">จาก Sheet BG</div>
+      </div>
+      <div class="value-item">
+        <div class="value-item__label">มูลค่า RO รวม</div>
+        <div class="value-item__num c-amber" id="v-total">—</div>
+        <div class="value-item__sub" id="v-total-pct-bg">— ของงบประมาณ</div>
+      </div>
+      <div class="value-item">
+        <div class="value-item__label">มูลค่า PO (GRPO+Archived)</div>
+        <div class="value-item__num c-green" id="v-po">—</div>
+        <div class="value-item__sub" id="v-po-pct">— ของงบประมาณ</div>
+      </div>
+      <div class="value-item">
+        <div class="value-item__label">คงเหลือ (ยังไม่ PO)</div>
+        <div class="value-item__num c-muted" id="v-remain">—</div>
+        <div class="value-item__sub" id="v-remain-pct">— ของงบประมาณ</div>
+      </div>
+    </div>
+
+    <div class="progress-compare progress-compare--lg" id="value-bar"></div>
+    <div class="pc-legend">
+      <span class="pc-legend__item">
+        <span class="legend-box" style="background:var(--green)"></span>มูลค่า PO (GRPO + Archived)
+      </span>
+      <span class="pc-legend__item">
+        <span class="legend-box" style="background:var(--amber)"></span>RO ที่ยังไม่ PO
+      </span>
+      <span class="pc-legend__item">
+        <span class="legend-box" style="background:var(--bg-tertiary);border:0.5px solid var(--border)"></span>งบที่ยังไม่มี RO
+      </span>
+    </div>
+  </section>
+
+  <!-- ── Budget Dropdown ───────────────── -->
+  <div class="filter-bar">
+    <label for="budget-select">Budget:</label>
+    <select id="budget-select">
+      <option value="">— ทั้งหมด —</option>
+      <option value="0">0-101 Conveyor Equipment</option>
+      <option value="696948322">4-501 Lubricant</option>
+      <option value="1216432940">6-101 Spreader</option>
+      <option value="594703843">6-102 Bucket Wheel Excavator</option>
+      <option value="1309658412">6-103 Crusher</option>
+      <option value="188899962">6-104 Conveyor System</option>
+      <option value="1019106348">6-105 Aux. CV Equipment</option>
+      <option value="1624105960">6-106 Service CV Equipment</option>
+      <option value="1225728737">6-111 General Consume CV</option>
+      <option value="1177087368">6-227 Hydraulic Hose and Fitting</option>
+      <option value="1566400890">7-101 Service Spreader</option>
+      <option value="1228114688">7-102 Service Bucket Wheel Excavator</option>
+      <option value="1252174840">7-103 Service Crusher</option>
+      <option value="287824465">7-104 Service Conveyor System</option>
+      <option value="1562418173">9-111 General Expense CV</option>
+    </select>
+  </div>
+
+  <!-- ── Charts Row ────────────────────── -->
+  <div class="grid-2">
+
+    <!-- RO Count by Budget -->
+    <div class="card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <div>
+          <div class="card__title" style="margin-bottom:5px;">จำนวน RO ตาม Budget</div>
+          <div class="chart-legend">
+            <span class="chart-legend__item"><span class="legend-box" style="background:#378ADD"></span>RO ทั้งหมด</span>
+            <span class="chart-legend__item"><span class="legend-box" style="background:#1D9E75"></span>PO (GRPO)</span>
+            <span class="chart-legend__item"><span class="legend-box" style="background:#534AB7"></span>ส่งของ (Archived)</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;" id="ro-summary-pills"></div>
+      </div>
+      <div style="position:relative;width:100%;height:280px;">
+        <canvas id="chart-budget"></canvas>
+      </div>
+    </div>
+
+    <!-- Vendor Chart -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <div class="card__title" style="margin-bottom:0">ภาพรวม Vendor ที่ได้ PO (ปี 2026)</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div class="chart-controls">
+            <label for="vendor-top-n">Top:</label>
+            <select id="vendor-top-n">
+              <option value="5" selected>5</option>
+              <option value="10">10</option>
+              <option value="15">15</option>
+              <option value="0">ทั้งหมด</option>
+            </select>
+            <label for="vendor-sort">เรียงตาม:</label>
+            <select id="vendor-sort">
+              <option value="po">จำนวน PO</option>
+              <option value="value">มูลค่า</option>
+            </select>
+          </div>
+          <span class="badge badge--sm" id="vendor-total-badge">— Vendor</span>
+        </div>
+      </div>
+      <div id="vendor-chart-wrap" style="position:relative;width:100%;">
+        <canvas id="chart-vendor"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /.grid-2 -->
+
+  <!-- ── Monthly Chart ─────────────────── -->
+  <div class="card chart-full">
+    <div class="card__title">ค่าใช้จ่ายรายเดือน (ตาม PO Date)</div>
+    <div style="position:relative;width:100%;height:280px;">
+      <canvas id="chart-monthly"></canvas>
+    </div>
+  </div>
+
+  <!-- ── BG Budget Overview ────────────── -->
+  <section class="card bg-section" id="bg-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <div>
+        <div class="card__title" style="margin-bottom:2px;">ภาพรวม Budget ปี 2026 (Sheet BG)</div>
+        <div style="font-size:11px;color:var(--text-tertiary)" id="bg-load-status">กำลังโหลด...</div>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;" id="bg-totals"></div>
+    </div>
+
+    <!-- BG Table -->
+    <div style="overflow-x:auto;margin-bottom:20px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:7px 10px;background:var(--bg-secondary);border-bottom:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap">No.</th>
+            <th style="text-align:left;padding:7px 10px;background:var(--bg-secondary);border-bottom:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;">Description</th>
+            <th style="text-align:center;padding:7px 10px;background:var(--bg-secondary);border-bottom:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap">Code</th>
+            <th style="text-align:right;padding:7px 10px;background:var(--bg-secondary);border-bottom:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap">Budget (฿)</th>
+            <th style="text-align:right;padding:7px 10px;background:var(--bg-secondary);border-bottom:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap">RO Expense (฿)</th>
+            <th style="text-align:right;padding:7px 10px;background:var(--bg-secondary);border-bottom:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap">Remain (฿)</th>
+            <th style="text-align:right;padding:7px 10px;background:var(--bg-secondary);border-bottom:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap">% Remain</th>
+            <th style="text-align:right;padding:7px 10px;background:var(--bg-secondary);border-bottom:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap">% Per Budget</th>
+          </tr>
+        </thead>
+        <tbody id="bg-tbody">
+          <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-tertiary)">กำลังโหลด...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- BG Charts -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Budget vs RO Expense ตามหมวด</div>
+        <div class="chart-legend">
+          <span class="chart-legend__item"><span class="legend-box" style="background:#378ADD"></span>Budget</span>
+          <span class="chart-legend__item"><span class="legend-box" style="background:#1D9E75"></span>RO Expense</span>
+        </div>
+        <div style="position:relative;width:100%;height:320px;"><canvas id="chart-bg-bar"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">% Remain ต่อ Budget (น้อย = ใช้มาก)</div>
+        <div style="position:relative;width:100%;height:320px;"><canvas id="chart-bg-remain"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Data Table ─────────────────────── -->
+  <div class="card" style="margin-bottom:18px;">
+    <div class="card__title">รายการสั่งซื้อ — สรุปตาม RO Number</div>
+
+    <div class="toggle-row">
+      <span class="toggle-row__label">รวมตาม RO:</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-group" checked>
+        <div class="toggle-switch__track"></div>
+        <div class="toggle-switch__thumb"></div>
+      </label>
+      <span class="toggle-row__desc" id="toggle-desc">
+        เปิด — RO เดียวกันรวมเป็นบรรทัดเดียว (คลิก RO Name เพื่อดูรายละเอียด)
+      </span>
+    </div>
+
+    <div class="tbl-filter">
+      <label for="filter-budget">Budget:</label>
+      <select id="filter-budget">
+        <option value="">ทั้งหมด</option>
+        <option value="0">0-101 Conveyor Equipment</option>
+        <option value="696948322">4-501 Lubricant</option>
+        <option value="1216432940">6-101 Spreader</option>
+        <option value="594703843">6-102 Bucket Wheel Excavator</option>
+        <option value="1309658412">6-103 Crusher</option>
+        <option value="188899962">6-104 Conveyor System</option>
+        <option value="1019106348">6-105 Aux. CV Equipment</option>
+        <option value="1624105960">6-106 Service CV Equipment</option>
+        <option value="1225728737">6-111 General Consume CV</option>
+        <option value="1177087368">6-227 Hydraulic Hose and Fitting</option>
+        <option value="1566400890">7-101 Service Spreader</option>
+        <option value="1228114688">7-102 Service Bucket Wheel Excavator</option>
+        <option value="1252174840">7-103 Service Crusher</option>
+        <option value="287824465">7-104 Service Conveyor System</option>
+        <option value="1562418173">9-111 General Expense CV</option>
+      </select>
+      <label for="filter-status">State:</label>
+      <select id="filter-status">
+        <option value="">ทั้งหมด</option>
+        <option value="GRPO">GRPO</option>
+        <option value="Archived">Archived</option>
+        <option value="Open">Open</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+      <label for="filter-search">ค้นหา:</label>
+      <input type="text" id="filter-search" placeholder="RO / ชื่อ / ร้านค้า...">
+      <span class="row-count" id="row-count"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead id="thead-row"></thead>
+        <tbody id="table-body">
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-tertiary)">กำลังโหลดข้อมูล...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note" id="table-note"></p>
+  </div>
+
+  <!-- ── Progress ──────────────────────── -->
+  <div class="grid-3">
+    <div class="card"><div class="card__title">Equipment — ความคืบหน้า</div><div id="progress-equip"></div></div>
+    <div class="card"><div class="card__title">Services — ความคืบหน้า</div><div id="progress-svc"></div></div>
+    <div class="card"><div class="card__title">General — ความคืบหน้า</div><div id="progress-gen"></div></div>
+  </div>
+
+  <footer class="footer">Procurement Dashboard · ข้อมูลจาก Google Sheets · รวมตาม RO Number อัตโนมัติ</footer>
+
+</main><!-- /.main -->
+
+<!-- ═══════════════════════════════════════
+     MODAL
+════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="app.closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal__header">
+      <div>
+        <div class="modal__title" id="modal-title">รายละเอียดการสั่งซื้อ</div>
+        <div class="modal__subtitle" id="modal-subtitle"></div>
+      </div>
+      <button class="modal__close" onclick="app.closeModalDirect()">✕</button>
+    </div>
+    <div class="modal__body" id="modal-body"></div>
+    <div class="modal__footer">
+      <button class="btn" onclick="app.closeModalDirect()">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     APP SCRIPTS (ES Modules)
+     Chart.js must load first → defer on CDN tag above
+════════════════════════════════════════ -->
+<script type="module">
+  import { init, openModal, closeModal, closeModalDirect, setSort, renderTable } from './js/app.js';
+
+  // Expose to inline onclick handlers (onclick="app.xxx()")
+  window.app = { openModal, closeModal, closeModalDirect, setSort, renderTable };
+
+  // Boot
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
