@@ -8,8 +8,8 @@
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css">
 
-  <!-- Chart.js (CDN) — loaded before app modules -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" defer></script>
+  <!-- Chart.js via jsDelivr (avoids Tracking Prevention blocks) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -17,9 +17,12 @@
      TOPBAR
 ════════════════════════════════════════ -->
 <header class="topbar">
-  <div>
-    <h1 class="topbar__title">Procurement Dashboard</h1>
-    <p  class="topbar__subtitle">Mining Equipment &amp; Services · สรุปตาม RO Number</p>
+  <div class="topbar__brand">
+    <div class="topbar__icon">⛏</div>
+    <div>
+      <h1 class="topbar__title">PROCUREMENT DASHBOARD</h1>
+      <p  class="topbar__subtitle">Mining Equipment &amp; Services · สรุปตาม RO Number</p>
+    </div>
   </div>
   <div class="topbar__actions">
     <span class="badge" id="status-badge">กำลังโหลด...</span>
